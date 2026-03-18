@@ -289,6 +289,14 @@ export class GhostAdminAPI {
     return result.posts[0];
   }
 
+  /**
+   * Delete a post
+   * Note: Ghost Admin API supports DELETE /admin/posts/{id}/
+   */
+  async deletePost(postId: string): Promise<void> {
+    await this.request('DELETE', `posts/${postId}/`);
+  }
+
   // ============================================
   // TAGS API
   // ============================================
@@ -535,7 +543,7 @@ export class GhostAdminAPI {
   }
 
   /**
-   * Upload an image from URL
+   * Upload an image from URL using streaming
    */
   async uploadImageFromUrl(imageUrl: string): Promise<GhostImage> {
     const response = await fetch(imageUrl);
@@ -543,20 +551,28 @@ export class GhostAdminAPI {
       throw new Error(`Failed to fetch image: ${response.status}`);
     }
 
-    const buffer = await response.buffer();
+    if (!response.body) {
+      throw new Error('Response body is null');
+    }
+
     const urlPath = new URL(imageUrl).pathname;
     const filename = urlPath.split('/').pop() || `image-${Date.now()}.jpg`;
 
-    // Write to temp file
+    // Write to temp file using streaming
     const fs = await import('fs');
     const os = await import('os');
     const path = await import('path');
+    const { pipeline } = await import('stream/promises');
     
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ghost-upload-'));
     const tmpPath = path.join(tmpDir, filename);
     
     try {
-      fs.writeFileSync(tmpPath, buffer);
+      // Stream response body to temp file
+      const writeStream = fs.createWriteStream(tmpPath);
+      // Node-fetch returns a Node.js Readable stream for response.body
+      await pipeline(response.body as any, writeStream);
+      
       return await this.uploadImage({
         path: tmpPath,
         filename

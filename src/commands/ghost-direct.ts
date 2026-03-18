@@ -1,18 +1,33 @@
 import { GhostAdminAPI, GhostPost, GhostTag, GhostMember, GhostTier, GhostSite, GhostImage } from '../ghost-api';
-import { getIntegrationSettings } from './integrations';
+import { PostizAPI } from '../api';
+import { getConfig } from '../config';
 
 /**
- * Get Ghost configuration from integration settings
- * @param integrationId - Postiz integration ID
- * @returns GhostAdminAPI instance with credentials
+ * Pure data accessor - fetches integration settings without logging or exiting.
+ * Safe for programmatic use (won't expose adminKey to stdout).
  */
-async function getGhostApi(integrationId: string): Promise<GhostAdminAPI> {
-  const settings = await getIntegrationSettings(integrationId);
+async function fetchIntegrationSettings(integrationId: string): Promise<{ url: string; key: string }> {
+  const config = getConfig();
+  const api = new PostizAPI(config);
   
-  if (!settings || !settings.url || !settings.key) {
+  const result = await api.getIntegrationSettings(integrationId);
+  
+  if (!result || !result.url || !result.key) {
     throw new Error('Invalid Ghost integration. Ensure URL and Admin Key are configured.');
   }
+  
+  return {
+    url: result.url,
+    key: result.key
+  };
+}
 
+/**
+ * Get Ghost API client from integration settings
+ */
+async function getGhostApi(integrationId: string): Promise<GhostAdminAPI> {
+  const settings = await fetchIntegrationSettings(integrationId);
+  
   return new GhostAdminAPI({
     url: settings.url,
     adminKey: settings.key
@@ -54,6 +69,18 @@ export async function changeGhostStatus(args: {
   status: 'draft' | 'published' | 'scheduled';
   publishedAt?: string;
 }) {
+  // Validate publishedAt is provided when scheduling
+  if (args.status === 'scheduled' && !args.publishedAt) {
+    throw new Error('--published-at is required when status is "scheduled"');
+  }
+  
+  // Validate ISO 8601 date format
+  if (args.status === 'scheduled' && args.publishedAt) {
+    if (Number.isNaN(Date.parse(args.publishedAt))) {
+      throw new Error('--published-at must be a valid ISO 8601 date');
+    }
+  }
+  
   const api = await getGhostApi(args.id);
   
   const updateData: any = { status: args.status };
@@ -78,13 +105,13 @@ export async function changeGhostStatus(args: {
 export async function deleteGhostPost(args: { id: string; postId: string }) {
   const api = await getGhostApi(args.id);
   
-  // Note: Ghost Admin API doesn't have a direct delete endpoint
-  // Posts must be deleted via the admin UI. This is a limitation.
+  await api.deletePost(args.postId);
+  
   console.log(JSON.stringify({
-    error: 'Ghost posts cannot be deleted via API. Use the Ghost admin UI.',
+    success: true,
+    message: 'Post deleted successfully',
     postId: args.postId
-  }));
-  process.exit(1);
+  }, null, 2));
 }
 
 // ============================================

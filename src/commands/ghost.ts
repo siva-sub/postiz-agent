@@ -140,6 +140,12 @@ export async function reschedulePost(args: any) {
   }
 
   const action = args.action || 'schedule';
+  
+  // Validate action is one of the allowed values
+  if (!['schedule', 'update'].includes(action)) {
+    console.error('❌ --action must be one of: schedule, update');
+    process.exit(1);
+  }
 
   try {
     const result = await api.updatePostDate(args.id, args.date, action);
