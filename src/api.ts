@@ -39,11 +39,16 @@ export class PostizAPI {
       }
 
       const text = await response.text();
-      if (!text) {
+      if (!text.trim()) {
         return null;
       }
 
-      return JSON.parse(text);
+      try {
+        return JSON.parse(text);
+      } catch {
+        // Return raw text if JSON parsing fails (e.g., HTML error page)
+        return text;
+      }
     } catch (error: any) {
       throw new Error(`Request failed: ${error.message}`);
     }
