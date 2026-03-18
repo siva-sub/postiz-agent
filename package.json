@@ -50,6 +50,7 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
+    "form-data": "^4.0.5",
     "node-fetch": "^3.3.2",
     "yargs": "^17.7.2"
   },
