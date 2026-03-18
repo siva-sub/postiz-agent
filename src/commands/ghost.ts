@@ -62,6 +62,15 @@ export async function changeGhostStatus(args: any) {
     process.exit(1);
   }
 
+  // Validate ISO 8601 date format for publishedAt
+  if (newStatus === 'scheduled' && args.publishedAt) {
+    const parsedDate = Date.parse(args.publishedAt);
+    if (Number.isNaN(parsedDate)) {
+      console.error('❌ --published-at must be a valid ISO 8601 date');
+      process.exit(1);
+    }
+  }
+
   try {
     const result = await api.changePostStatus(
       args.id,
@@ -120,6 +129,13 @@ export async function reschedulePost(args: any) {
 
   if (!args.date) {
     console.error('❌ New date is required (--date)');
+    process.exit(1);
+  }
+
+  // Validate ISO 8601 date format
+  const parsedDate = Date.parse(args.date);
+  if (Number.isNaN(parsedDate)) {
+    console.error('❌ --date must be a valid ISO 8601 date');
     process.exit(1);
   }
 
